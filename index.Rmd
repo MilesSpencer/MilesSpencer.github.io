@@ -1,30 +1,146 @@
 ---
-title: "Webpage"
+title: "Academic Data Report"
 author: "Miles Spencer"
-date: "3/29/2022"
+date: "4/28/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+library(tidyverse)
+library(janitor)
+library(lmerTest)
 ```
 
-## R Markdown
+## FACTORS AFFECTING PASSING A MATHEMATICS COURSE
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+When coming up with my final project for the BIOL 3100 class, I was interested in looking at how factors related to tutoring impacted the outcome of a students final grade in math courses. But due to the lengthy process required to get authorization to use data from the tutoring center, alongside access to the UVU student database, my only option was to get my hands on data from another source. Luckily, the instructor for the course, Dr. Geoffry Zahn, had a portion of the UVU database from 2013-2021 that had been made anonymous. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+### A Whole Bunch of Data
 
-```{r cars}
-summary(cars)
+After obtaining the data, I was overwhelmed by the two files I was interested in totaling together to almost 4 GB! The computer I was running the data on was having trouble loading and processing that much data. It quickly became apparent that I had to whittle down the data to something manageable. The first task was to pull all the Mathematics (MATH), Developmental Mathematics (MAT), and Statistics courses from the 4,478,532 observations in the course .csv file. This had to be done through command line, since the file would not load into RStudio. After doing that and cutting out any duplicated data, I was able to get the course data down to 160,440 observations. The student .csv file had 1,324,381 observations and was loaded into RStudio without any major issues. Still I needed to cut out any redundant data. But I was able to get that data set down to 568,615 observations.
+
+The next job was going through the 117 variables in the course file and 79 variables in the student file to get the ones that I thought relevant to my analysis. This was a lengthy process, but I was able to get course data down to 15 variables and student data down to 8 variables. The data was now in an ordered state which less intimidating and more manageable for my computer to process.
+
+The next thing I wanted to do was join the data together into one data set containing all the relevant data. This was down with three variables that were shared between the data set. Now each observation represented a math course taken by a student. The format of the current grade data was not quantifiable, so I added a variable that had the grade of "A" set to a value of 4.0, "A-" set to a value of 3.7, and so forth following how UVU calculates grade point average. 
+
+Afterwards, the data was now in a state that could be effectively work with, having 160,440 observations and 21 variables. Here is a glimpse of that data:
+
+```{r include=FALSE}
+df_course <- read_csv("../Data_Course_SPENCER/Final_Project/math_full_course_anon.csv") %>% 
+  filter(SUBJECT == "MATH" | SUBJECT == "MAT" | SUBJECT == "STAT") %>% 
+  clean_names() %>% 
+  filter(freeze_type == "EOT") %>% 
+  select(c("student_warehouse_entity_uid","academic_year","academic_period","course_identification","subject",
+           "instr_warehouse_entity_uid","instruction_method","final_grade","sub_academic_period_desc",
+           "repeat_course_ind","course_credits","course_campus_desc","schedule_type_desc","residency","credits_earned"))
+
+df_student <- read_csv("./uvu_full_student_anon.csv") %>% 
+  clean_names() %>% 
+  select(c("student_warehouse_entity_uid","academic_year","age","gender","primary_ethnicity_desc",
+           "term_cumulative_gpa","state_residency","academic_period_desc"))
+
+df_student <- df_student[!df_student$term_cumulative_gpa %>% is.na(),]
+
+a <- df_course %>% names
+b <- df_student %>% names
+
+join_by <- a[a %in% b]
+
+df_full <- left_join(df_course,df_student,by=join_by) %>% 
+  mutate(grade_score = case_when(  #change grades to number values
+    final_grade == "A" ~ 4,
+    final_grade == "A-" ~ 3.7,
+    final_grade == "B+" ~ 3.4,
+    final_grade == "B" ~ 3,
+    final_grade == "B-" ~ 2.7,
+    final_grade == "C+" ~ 2.4,
+    final_grade == "C" ~ 2,
+    final_grade == "C-" ~ 1.7,
+    final_grade == "D+" ~ 1.4,
+    final_grade == "D" ~ 1,
+    final_grade == "D-" ~ 0.7,
+    TRUE ~ 0))
+```
+```{r echo=FALSE}
+glimpse(df_full)
 ```
 
-## Including Plots
+### Visualizing the Data
 
-You can also embed plots, for example:
+Now that the data was in a workable format, I wanted to start looking at the effects different variables had on whether a student passes or fails a course. The pass/fail variable is based on whether a student received any credit from the course and not whether the grade received was sufficient to fulfill any requirements.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Looking at this graph, it looks like the proportion of students who failed their math class went down in 2020 and 2021 went down. These were the years when COVID-19 was affecting everything, so it is possible that teachers were more lenient during COVID and more likely to pass their students. I can look at this in a model, using academic year as an explanatory variable.
+
+```{r echo=FALSE, fig.width=6, fig.height=9, fig.align='center'}
+
+df_full <- df_full %>% mutate(pass = case_when(
+  credits_earned > 0 ~ "Pass",
+  TRUE ~ "Fail")) 
+
+df_full %>% 
+  ggplot(aes(x = pass,
+             fill = gender)) +
+  geom_bar() +
+  facet_wrap(~academic_year) +
+  theme_minimal()
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+When looking at pass and fail proportions by ethnicity, it appears that the ethnicity of the student may be a predictor on whether the student passes or fails.
+
+```{r echo=FALSE, fig.width=9, fig.height=9, fig.align='center'}
+
+df_full %>% 
+  ggplot(aes(x = pass,
+             fill = gender)) +
+  geom_bar() +
+  facet_wrap(~primary_ethnicity_desc,
+             scales = "free") +
+  theme_minimal()
+
+```
+
+### Running Models
+
+I am going to ignore the ethnicity of the students when creating my models. The variables I do want to take into account are academic year, gender, age, and course ID. 
+
+```{r include=FALSE}
+library(easystats)
+
+mod1 <- df_full %>% 
+  lmer(data = .,
+       formula = grade_score ~ academic_year + gender + age + (1|subject))
+
+mod2 <- df_full %>% 
+  lmer(data = .,
+       formula = grade_score ~ academic_year + gender * age + (1|subject/course_identification))
+
+```
+
+```{r echo=FALSE}
+
+summary(mod1)
+
+```
+
+The first model is a linear mixed-effect model. It is set up to predict the grade score with age, gender, and academic year as fixed effects, but then uses subject as a random effect.
+
+```{r echo=FALSE}
+
+summary(mod2)
+
+```
+
+The second model is very similar to the first model, but the course ID is nested inside the subject. This is done because each course ID is specific to a subject and needs to be taken into account in our model for random effects. Also included in this model is the interaction effect of age and gender.
+
+```{r echo=FALSE}
+
+compare_performance(mod1, mod2) %>% 
+  select(-ends_with("wt"))
+
+```
+
+When looking at the comparison of the two models we are mainly interested in the R2 (marg.) and R2 (cond.) columns. The R2 values are measurements representing the proportion of the change in the grade score that's explained by an my explanatory variables. The marginal R2 is the proportion of variation explained by the fixed effects and the conditional R2 is the proportion of variation as explained by the random effects. In this case, the amount of change in the grade score is explained very little by age, gender, and academic year. A larger portion of that change can be explained by the course the student is taking. This is an ideal outcome as we would hope not to see a students grade being affected by their gender or age. But it is interesting that the grade wasn't affected by whether or not a student took their math class during a COVID-19 semester.
+
+
