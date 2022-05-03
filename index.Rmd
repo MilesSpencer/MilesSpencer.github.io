@@ -18,24 +18,24 @@ When coming up with my final project for the BIOL 3100 class, I was interested i
 
 ### A Whole Bunch of Data
 
-After obtaining the data, I was overwhelmed by the two files I was interested in totaling together to almost 4 GB! The computer I was running the data on was having trouble loading and processing that much data. It quickly became apparent that I had to whittle down the data to something manageable. The first task was to pull all the Mathematics (MATH), Developmental Mathematics (MAT), and Statistics courses from the 4,478,532 observations in the course .csv file. This had to be done through command line, since the file would not load into RStudio. After doing that and cutting out any duplicated data, I was able to get the course data down to 160,440 observations. The student .csv file had 1,324,381 observations and was loaded into RStudio without any major issues. Still I needed to cut out any redundant data. But I was able to get that data set down to 568,615 observations.
+After obtaining the data, I was overwhelmed by the two files I was interested in totaling together to almost **4 GB**! The computer I was running the data on was having trouble loading and processing that much data. It quickly became apparent that I had to whittle down the data to something manageable. The first task was to pull all the Mathematics (MATH), Developmental Mathematics (MAT), and Statistics courses from the **4,478,532** observations in the course .csv file. This had to be done through command line, since the file would not load into RStudio. After doing that and cutting out any duplicated data, I was able to get the course data down to *160,440* observations. The student .csv file had **1,324,381** observations and was loaded into RStudio without any major issues. Still I needed to cut out any redundant data. But I was able to get that data set down to *568,615* observations.
 
-The next job was going through the 117 variables in the course file and 79 variables in the student file to get the ones that I thought relevant to my analysis. This was a lengthy process, but I was able to get course data down to 15 variables and student data down to 8 variables. The data was now in an ordered state which less intimidating and more manageable for my computer to process.
+The next job was going through the **117** variables in the course file and **79** variables in the student file to get the ones that I thought relevant to my analysis. This was a lengthy process, but I was able to get course data down to *15* variables and student data down to *8* variables. The data was now in an ordered state which less intimidating and more manageable for my computer to process.
 
 The next thing I wanted to do was join the data together into one data set containing all the relevant data. This was down with three variables that were shared between the data set. Now each observation represented a math course taken by a student. The format of the current grade data was not quantifiable, so I added a variable that had the grade of "A" set to a value of 4.0, "A-" set to a value of 3.7, and so forth following how UVU calculates grade point average. 
 
-Afterwards, the data was now in a state that could be effectively work with, having 160,440 observations and 21 variables. Here is a glimpse of that data:
+Afterwards, the data was now in a state that could be effectively work with, having *160,440* observations and *21* variables. Here is a glimpse of that data:
 
 ```{r include=FALSE}
 df_course <- read_csv("../Data_Course_SPENCER/Final_Project/math_full_course_anon.csv") %>% 
   filter(SUBJECT == "MATH" | SUBJECT == "MAT" | SUBJECT == "STAT") %>% 
   clean_names() %>% 
   filter(freeze_type == "EOT") %>% 
-  select(c("student_warehouse_entity_uid","academic_year","academic_period","course_identification","subject",
+  select(c("student_warehouse_entity_uid","academic_year","academic_period_desc","course_identification","subject",
            "instr_warehouse_entity_uid","instruction_method","final_grade","sub_academic_period_desc",
            "repeat_course_ind","course_credits","course_campus_desc","schedule_type_desc","residency","credits_earned"))
 
-df_student <- read_csv("./uvu_full_student_anon.csv") %>% 
+df_student <- read_csv("../Data_Course_SPENCER/Final_Project/uvu_full_student_anon.csv") %>% 
   clean_names() %>% 
   select(c("student_warehouse_entity_uid","academic_year","age","gender","primary_ethnicity_desc",
            "term_cumulative_gpa","state_residency","academic_period_desc"))
@@ -83,7 +83,8 @@ df_full %>%
              fill = gender)) +
   geom_bar() +
   facet_wrap(~academic_year) +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "", y = "Count")
 
 ```
 
@@ -143,4 +144,8 @@ compare_performance(mod1, mod2) %>%
 
 When looking at the comparison of the two models we are mainly interested in the R2 (marg.) and R2 (cond.) columns. The R2 values are measurements representing the proportion of the change in the grade score that's explained by an my explanatory variables. The marginal R2 is the proportion of variation explained by the fixed effects and the conditional R2 is the proportion of variation as explained by the random effects. In this case, the amount of change in the grade score is explained very little by age, gender, and academic year. A larger portion of that change can be explained by the course the student is taking. This is an ideal outcome as we would hope not to see a students grade being affected by their gender or age. But it is interesting that the grade wasn't affected by whether or not a student took their math class during a COVID-19 semester.
 
+##Future Work
 
+There is a lot of student data. As I mentioned in the introduction I would like to merge this data with the queue data from the Math Tutoring lab. With this I could see the impact that going to the tutoring lab and how many questions asked by the student has on the grade of a student.
+
+There is also a lot of data that can be related back to the tutor allowing them to see the impact they have had on the students they tutor. It would be insightful overall to see which demographics use the lab enabling more directed marketing to under represented groups. I would also like to get permission to use the tutors data and demographics to see what the effects of tutoring has on their grades and performance in school.
